@@ -1,0 +1,39 @@
+# Node.js dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Build output
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs/editors
+.vscode/
+.idea/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# PM2 ecosystem file logs (jika pakai PM2)
+pids/
+*.log
+ecosystem.config.js
+
+# Optional: yt-dlp cache (jika ada)
+.yt-dlp/
+
+# Optional: temporary data
+tmp/
+temp/
