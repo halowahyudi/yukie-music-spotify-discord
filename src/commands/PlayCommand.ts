@@ -14,9 +14,9 @@ import { spawn } from "child_process";
 import { Readable } from "stream";
 
 export class MusicService {
-  private queues: Map<string, Queue> = new Map();
-  private connections: Map<string, VoiceConnection> = new Map();
-  private players: Map<string, AudioPlayer> = new Map();
+  private queues = new Map<string, Queue>();
+  private connections = new Map<string, VoiceConnection>();
+  private players = new Map<string, AudioPlayer>();
 
   public getQueue(guildId: string): Queue {
     if (!this.queues.has(guildId)) {
@@ -42,7 +42,6 @@ export class MusicService {
     this.connections.set(channel.guild.id, connection);
 
     connection.on(VoiceConnectionStatus.Disconnected, () => {
-      console.warn(`🔌 Voice disconnected from ${channel.guild.name}`);
       this.cleanup(channel.guild.id);
     });
 
@@ -51,16 +50,13 @@ export class MusicService {
 
   public async addToQueue(guildId: string, tracks: Track[]): Promise<void> {
     const queue = this.getQueue(guildId);
-    console.log(`➕ Menambahkan ${tracks.length} track ke queue ${guildId}`);
     queue.tracks.push(...tracks);
   }
 
   private getYtdlpStream(url: string): Readable {
-    console.log(`🔗 Mulai download dari yt-dlp URL: ${url}`);
-
     const ytdlp = spawn("yt-dlp", [
       "--cookies",
-      "cookies.txt",
+      "cookies.txt", // if needed
       "--quiet",
       "--no-warnings",
       "-f",
@@ -86,25 +82,15 @@ export class MusicService {
     ]);
 
     ytdlp.stdout.on("error", (err) => {
-      console.error("❌ yt-dlp stdout error:", err);
-    });
-
-    ffmpeg.stdin.on("error", (err: any) => {
-      if (err.code === "EPIPE") {
-        console.error(
-          "❌ ffmpeg stdin error: EPIPE (mungkin stream tertutup lebih awal)"
-        );
-      } else {
-        console.error("❌ ffmpeg stdin error:", err);
+      if ((err as NodeJS.ErrnoException).code !== "EPIPE") {
+        console.error("❌ yt-dlp stdout error:", err);
       }
     });
 
-    ytdlp.stderr.on("data", (data) => {
-      console.error(`[yt-dlp error]: ${data.toString().trim()}`);
-    });
-
-    ffmpeg.stderr.on("data", (data) => {
-      console.error(`[ffmpeg error]: ${data.toString().trim()}`);
+    ffmpeg.stdin.on("error", (err) => {
+      if ((err as NodeJS.ErrnoException).code !== "EPIPE") {
+        console.error("❌ ffmpeg stdin error:", err);
+      }
     });
 
     ytdlp.stdout.pipe(ffmpeg.stdin);
@@ -112,66 +98,53 @@ export class MusicService {
     return ffmpeg.stdout;
   }
 
+  private async searchYoutubeUrl(track: Track): Promise<string> {
+    const query = `${track.artist} ${track.title}`;
+    return new Promise((resolve, reject) => {
+      const process = spawn("yt-dlp", [
+        "--cookies",
+        "cookies.txt", // if needed
+        "--default-search",
+        "ytsearch1:",
+        "--get-id",
+        "--no-playlist",
+        query,
+      ]);
+
+      let videoId = "";
+
+      process.stdout.on("data", (data) => {
+        videoId += data.toString();
+      });
+
+      process.stderr.on("data", (data) => {
+        console.error(`[yt-dlp search error]: ${data}`);
+      });
+
+      process.on("close", (code) => {
+        if (code === 0 && videoId.trim()) {
+          resolve(`https://www.youtube.com/watch?v=${videoId.trim()}`);
+        } else {
+          reject(new Error("Video ID not found"));
+        }
+      });
+    });
+  }
+
   public async play(guildId: string): Promise<void> {
     const queue = this.getQueue(guildId);
     const connection = this.connections.get(guildId);
-
-    if (!connection) {
-      console.warn("❌ Tidak ada koneksi voice ditemukan.");
-      return;
-    }
-
-    if (queue.tracks.length === 0) {
-      console.warn("📭 Queue kosong.");
-      return;
-    }
-
-    if (queue.isPlaying) {
-      console.warn("⏳ Masih sedang memutar lagu.");
-      return;
-    }
+    if (!connection || queue.tracks.length === 0 || queue.isPlaying) return;
 
     const track = queue.tracks.shift()!;
     queue.currentTrack = track;
     queue.isPlaying = true;
 
     try {
-      const searchQuery = `${track.artist} ${track.title}`;
-      console.log(`🔍 Mencari YouTube untuk: ${searchQuery}`);
-
-      const ytDlpSearch = spawn("yt-dlp", [
-        "--cookies",
-        "cookies.txt",
-        "--default-search",
-        "ytsearch1:",
-        "--get-id",
-        "--no-playlist",
-        searchQuery,
-      ]);
-
-      let videoId = "";
-      for await (const chunk of ytDlpSearch.stdout) {
-        videoId += chunk.toString();
-      }
-
-      videoId = videoId.trim();
-      console.log(`🎬 Video ID result: "${videoId}"`);
-
-      if (!videoId) {
-        const stderr = await new Promise<string>((resolve) => {
-          let errData = "";
-          ytDlpSearch.stderr.on("data", (data) => (errData += data.toString()));
-          ytDlpSearch.stderr.on("close", () => resolve(errData.trim()));
-        });
-        console.error("❌ yt-dlp stderr output:\n", stderr);
-        throw new Error("Video ID not found");
-      }
-
-      const url = `https://www.youtube.com/watch?v=${videoId}`;
-      console.log(`✅ Ditemukan video: ${url}`);
+      const url = await this.searchYoutubeUrl(track);
+      console.log(`🎬 Streaming: ${url}`);
 
       const stream = this.getYtdlpStream(url);
-
       const resource = createAudioResource(stream, {
         inputType: StreamType.Raw,
         inlineVolume: true,
@@ -185,30 +158,25 @@ export class MusicService {
       }
 
       player.play(resource);
-      console.log(`🎶 Sekarang memutar: ${track.title} oleh ${track.artist}`);
+      console.log(`🎵 Now playing: ${track.title} - ${track.artist}`);
 
       player.once(AudioPlayerStatus.Idle, async () => {
         queue.isPlaying = false;
         queue.currentTrack = null;
-        console.log("⏭️ Lagu selesai. Cek track selanjutnya.");
-        if (queue.tracks.length > 0) {
-          setTimeout(() => this.play(guildId), 500);
-        }
+        if (queue.tracks.length > 0) setTimeout(() => this.play(guildId), 500);
       });
 
       player.on("error", (error) => {
         console.error("❌ Player error:", error);
         queue.isPlaying = false;
         queue.currentTrack = null;
+        if (queue.tracks.length > 0) setTimeout(() => this.play(guildId), 500);
       });
     } catch (error) {
       console.error("❌ Error while playing:", error);
       queue.isPlaying = false;
       queue.currentTrack = null;
-
-      if (queue.tracks.length > 0) {
-        setTimeout(() => this.play(guildId), 500);
-      }
+      if (queue.tracks.length > 0) setTimeout(() => this.play(guildId), 500);
     }
   }
 
@@ -217,7 +185,6 @@ export class MusicService {
     const queue = this.getQueue(guildId);
 
     if (player && queue.isPlaying) {
-      console.log("⏩ Melewati lagu saat ini");
       queue.isPlaying = false;
       queue.currentTrack = null;
       player.stop(true);
@@ -230,7 +197,6 @@ export class MusicService {
     const queue = this.getQueue(guildId);
     const player = this.players.get(guildId);
 
-    console.log("🛑 Menghentikan dan membersihkan queue");
     queue.tracks = [];
     queue.currentTrack = null;
     queue.isPlaying = false;
@@ -246,13 +212,15 @@ export class MusicService {
   }
 
   private cleanup(guildId: string): void {
-    console.log(`🧹 Cleanup data guild: ${guildId}`);
     this.connections.delete(guildId);
     this.players.delete(guildId);
     this.queues.delete(guildId);
   }
 
-  public handleVoiceStateUpdate(oldState: VoiceState): void {
+  public handleVoiceStateUpdate(
+    oldState: VoiceState,
+    newState: VoiceState
+  ): void {
     if (
       oldState.channelId &&
       oldState.channel?.members.filter((m) => !m.user.bot).size === 0
@@ -260,10 +228,7 @@ export class MusicService {
       const connection = this.connections.get(oldState.guild.id);
       if (connection) {
         setTimeout(() => {
-          const stillEmpty =
-            oldState.channel?.members.filter((m) => !m.user.bot).size === 0;
-          if (stillEmpty) {
-            console.log("🚪 Voice channel kosong, disconnecting...");
+          if (oldState.channel?.members.filter((m) => !m.user.bot).size === 0) {
             this.disconnect(oldState.guild.id);
           }
         }, 30_000);
