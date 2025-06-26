@@ -144,8 +144,6 @@ export class MusicService {
         "cookies.txt",
         "--default-search",
         "ytsearch1:",
-        "-f",
-        "251",
         "--get-id",
         "--no-playlist",
         searchQuery,
@@ -155,11 +153,17 @@ export class MusicService {
       for await (const chunk of ytDlpSearch.stdout) {
         videoId += chunk.toString();
       }
-      videoId = videoId.trim();
 
-      console.log(`🎬 Video ID: ${videoId}`);
+      videoId = videoId.trim();
+      console.log(`🎬 Video ID result: "${videoId}"`);
 
       if (!videoId) {
+        const stderr = await new Promise<string>((resolve) => {
+          let errData = "";
+          ytDlpSearch.stderr.on("data", (data) => (errData += data.toString()));
+          ytDlpSearch.stderr.on("close", () => resolve(errData.trim()));
+        });
+        console.error("❌ yt-dlp stderr output:\n", stderr);
         throw new Error("Video ID not found");
       }
 
