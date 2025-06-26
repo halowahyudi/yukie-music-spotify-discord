@@ -57,7 +57,7 @@ export class MusicService {
   private getYtdlpOpusStream(url: string): Readable {
     const ytdlp = spawn("yt-dlp", [
       "--cookies",
-      "../../cookies.txt",
+      "cookies.txt",
       "--quiet",
       "--no-warnings",
       "-f",
