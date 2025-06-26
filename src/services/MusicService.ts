@@ -98,6 +98,8 @@ export class MusicService {
 
       if (!videoId) {
         const ytDlpSearch = spawn("yt-dlp", [
+          "--cookies",
+          "cookies.txt",
           "--default-search",
           "ytsearch1:",
           "--get-id",
