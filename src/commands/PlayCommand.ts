@@ -152,12 +152,12 @@ export class MusicService {
       ]);
 
       let videoId = "";
-
       for await (const chunk of ytDlpSearch.stdout) {
         videoId += chunk.toString();
       }
-
       videoId = videoId.trim();
+
+      console.log(`🎬 Video ID: ${videoId}`);
 
       if (!videoId) {
         throw new Error("Video ID not found");
