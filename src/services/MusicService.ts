@@ -77,7 +77,12 @@ export class MusicService {
       console.error("❌ yt-dlp stdout error:", err);
     });
 
-    ytdlp.stderr.on("data", () => {}); // Silent log
+    ytdlp.stderr.on("data", (data) => {
+      const msg = data.toString();
+      if (msg.includes("429")) {
+        console.error("❌ yt-dlp hit rate limit or blocked:", msg);
+      }
+    });
 
     ytdlp.on("close", (code) => {
       if (code !== 0) {
@@ -141,15 +146,14 @@ export class MusicService {
       player.play(resource);
       console.log(`🎵 Now playing: ${track.title} by ${track.artist}`);
 
-      if (track.messageChannel && track.messageChannel instanceof TextChannel) {
+      if (track.messageChannel instanceof TextChannel) {
         const embed = new EmbedBuilder()
           .setTitle("🎶 Sedang Diputar")
           .setDescription(`**${track.title}** oleh **${track.artist}**`)
           .setThumbnail(track.thumbnail ?? null)
           .setColor(0x1db954)
-          .setFooter({
-            text: `Requested by ${track.requestedBy ?? "User"}`,
-          });
+          .setFooter({ text: `Requested by ${track.requestedBy ?? "User"}` });
+
         await track.messageChannel.send({ embeds: [embed] });
       }
 
