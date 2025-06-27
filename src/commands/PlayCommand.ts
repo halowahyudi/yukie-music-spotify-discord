@@ -10,18 +10,25 @@ function isYouTubeUrl(url: string): boolean {
 
 async function getYouTubeTitle(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("yt-dlp", ["--get-title", "--no-playlist", url]);
+    const ytDlpSearch = spawn("yt-dlp", [
+      "--cookies",
+      "cookies.txt",
+      "--default-search",
+      "ytsearch1:",
+      "--get-id",
+      "--no-playlist",
+    ]);
 
     let output = "";
-    proc.stdout.on("data", (data) => {
+    ytDlpSearch.stdout.on("data", (data) => {
       output += data.toString();
     });
 
-    proc.stderr.on("data", (err) => {
+    ytDlpSearch.stderr.on("data", (err) => {
       console.error("yt-dlp stderr:", err.toString());
     });
 
-    proc.on("close", (code) => {
+    ytDlpSearch.on("close", (code) => {
       if (code === 0) {
         resolve(output.trim());
       } else {
