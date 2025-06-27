@@ -70,7 +70,6 @@ export class MusicService {
       "-o",
       "-",
       "--no-playlist",
-      "--no-check-certificate",
       url,
     ]);
 
