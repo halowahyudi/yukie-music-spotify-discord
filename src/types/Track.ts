@@ -1,11 +1,15 @@
+import { TextBasedChannel } from "discord.js";
+
 export interface Track {
   title: string;
   artist: string;
   duration: number;
   url: string;
-  thumbnail?: string;
-  spotifyId?: string;
+  spotifyId?: string | null;
+  thumbnail?: string | null;
+  youtubeUrl?: string;
   requestedBy: string;
+  messageChannel?: TextBasedChannel;
 }
 
 export interface Queue {

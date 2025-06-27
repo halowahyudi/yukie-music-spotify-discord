@@ -20,8 +20,8 @@ export class SpotifyService {
       this.spotifyApi.setAccessToken(this.accessToken);
 
       // Refresh token setiap 50 menit
-      setInterval(async () => {
-        await this.refreshToken();
+      setInterval(() => {
+        this.refreshToken();
       }, 50 * 60 * 1000);
 
       console.log("✅ Spotify API initialized");
@@ -42,20 +42,30 @@ export class SpotifyService {
     }
   }
 
+  public extractPlaylistId(url: string): string | null {
+    const regex = /playlist[\/:]([a-zA-Z0-9]+)/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  }
+
+  public extractTrackId(url: string): string | null {
+    const regex = /track[\/:]([a-zA-Z0-9]+)/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  }
+
   public async getPlaylistTracks(
     playlistId: string,
     requestedBy: string
   ): Promise<Track[]> {
     try {
-      // Validasi playlist ID
       if (!playlistId || playlistId.length !== 22) {
-        throw new Error("Invalid playlist ID format");
+        throw new Error("Invalid playlist ID");
       }
 
-      console.log(`🔍 Mengambil playlist: ${playlistId}`);
       const data = await this.spotifyApi.getPlaylistTracks(playlistId, {
-        limit: 50,
         market: "ID",
+        limit: 100,
       });
 
       const tracks: Track[] = [];
@@ -65,21 +75,43 @@ export class SpotifyService {
           const track = item.track as SpotifyApi.TrackObjectFull;
           tracks.push({
             title: track.name,
-            artist: track.artists.map((artist) => artist.name).join(", "),
+            artist: track.artists.map((a) => a.name).join(", "),
             duration: track.duration_ms,
-            url: track.external_urls.spotify,
             thumbnail: track.album.images[0]?.url,
+            url: track.external_urls.spotify,
             spotifyId: track.id,
             requestedBy,
           });
         }
       }
 
-      console.log(`✅ Berhasil mengambil ${tracks.length} lagu dari playlist`);
       return tracks;
     } catch (error) {
-      console.error("❌ Error getting playlist tracks:", error);
+      console.error("❌ Error fetching playlist tracks:", error);
       throw error;
+    }
+  }
+
+  public async getTrackById(
+    trackId: string,
+    requestedBy: string
+  ): Promise<Track | null> {
+    try {
+      const data = await this.spotifyApi.getTrack(trackId);
+      const track = data.body;
+
+      return {
+        title: track.name,
+        artist: track.artists.map((a) => a.name).join(", "),
+        duration: track.duration_ms,
+        thumbnail: track.album.images[0]?.url,
+        url: track.external_urls.spotify,
+        spotifyId: track.id,
+        requestedBy,
+      };
+    } catch (error) {
+      console.error("❌ Error fetching track by ID:", error);
+      return null;
     }
   }
 
@@ -95,10 +127,10 @@ export class SpotifyService {
 
       return {
         title: track.name,
-        artist: track.artists.map((artist) => artist.name).join(", "),
+        artist: track.artists.map((a) => a.name).join(", "),
         duration: track.duration_ms,
-        url: track.external_urls.spotify,
         thumbnail: track.album.images[0]?.url,
+        url: track.external_urls.spotify,
         spotifyId: track.id,
         requestedBy,
       };
@@ -108,36 +140,7 @@ export class SpotifyService {
     }
   }
 
-  public async getTrackById(
-    trackId: string,
-    requestedBy: string
-  ): Promise<Track | null> {
-    try {
-      const data = await this.spotifyApi.getTrack(trackId);
-      const track = data.body;
-
-      return {
-        title: track.name,
-        artist: track.artists.map((artist) => artist.name).join(", "),
-        duration: track.duration_ms,
-        url: track.external_urls.spotify,
-        thumbnail: track.album.images[0]?.url,
-        spotifyId: track.id,
-        requestedBy,
-      };
-    } catch (error) {
-      console.error("❌ Error getting track by ID:", error);
-      return null;
-    }
-  }
-
-  public extractPlaylistId(url: string): string | null {
-    const match = url.match(/playlist\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
-  }
-
-  public extractTrackId(url: string): string | null {
-    const match = url.match(/track\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
+  public isYouTubeUrl(url: string): boolean {
+    return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//.test(url);
   }
 }

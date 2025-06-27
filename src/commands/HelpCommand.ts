@@ -1,67 +1,92 @@
-import { Message, EmbedBuilder } from "discord.js";
+import {
+  Message,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from "discord.js";
 import { SpotifyBot } from "../index";
 import { Command } from "../types/Command";
-import { config } from "dotenv";
-
-config();
 
 export class HelpCommand implements Command {
   name = "help";
   description = "Menampilkan daftar semua command";
-  usage = `${process.env.prefix}help`;
+  usage = `${process.env.PREFIX}help`;
 
   async execute(
     bot: SpotifyBot,
     message: Message,
     args: string[]
   ): Promise<void> {
-    const embed = new EmbedBuilder()
-      .setTitle("🤖 Spotify Bot Commands")
-      .setDescription("Bot musik dengan integrasi Spotify")
+    const botName = bot.client.user?.username ?? "Bot";
+
+    // Embed List Command
+    const embedCommands = new EmbedBuilder()
+      .setTitle(`🤖 ${botName} Commands`)
+      .setDescription("Bot musik dengan integrasi Spotify dan YouTube 🎶")
       .setColor("#1DB954")
-      .setTimestamp();
+      .setTimestamp()
+      .setFooter({
+        text: `Bot aktif di server ${message.guild?.name}`,
+        iconURL: bot.client.user?.displayAvatarURL() ?? undefined,
+      });
 
     const commands = [
       {
-        name: `🎵 ${process.env.PREFIX}play <url/search>`,
-        value: [
-          "Memutar musik dari Spotify URL atau pencarian.",
-          `Contoh: \`${process.env.PREFIX}play https://open.spotify.com/track/...?\``,
-          `Contoh: \`${process.env.PREFIX}play dua lipa levitating\``,
-        ].join("\n"),
+        name: `🎵 ${process.env.PREFIX}play <url/pencarian>`,
+        value: "Putar musik dari Spotify, YouTube, atau kata kunci.",
       },
       {
         name: `📝 ${process.env.PREFIX}queue`,
-        value: "Menampilkan daftar lagu dalam queue",
-      },
-      {
-        name: `📋 ${process.env.PREFIX}list`,
-        value: "Menampilkan playlist yang tersimpan",
+        value: "Lihat daftar lagu yang sedang antre.",
       },
       {
         name: `⏭️ ${process.env.PREFIX}skip`,
-        value: "Melewati lagu yang sedang diputar",
+        value: "Lewati lagu saat ini.",
       },
       {
         name: `⏹️ ${process.env.PREFIX}stop`,
-        value: "Menghentikan musik dan membersihkan queue",
+        value: "Stop musik dan bersihkan queue.",
       },
       {
         name: `❓ ${process.env.PREFIX}help`,
-        value: "Menampilkan pesan bantuan ini",
+        value: "Tampilkan daftar command bot.",
       },
     ];
 
-    commands.forEach((cmd) => {
-      embed.addFields({ name: cmd.name, value: cmd.value, inline: false });
-    });
+    commands.forEach((cmd) =>
+      embedCommands.addFields({ name: cmd.name, value: cmd.value })
+    );
 
-    embed.setFooter({
-      text: "Powered by Spotify API",
-      iconURL:
-        "https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg",
-    });
+    // Embed Sponsor
+    const embedSponsor = new EmbedBuilder()
+      .setTitle("📢 Papan Sponsor")
+      .setDescription(
+        "Ingin brand kamu tampil di sini?\n📬 Hubungi kami untuk kerja sama atau sponsorship."
+      )
+      .setColor("#f1c40f")
+      .setImage("https://media.giphy.com/media/3o6ZtaO9BZHcOjmErm/giphy.gif")
+      .setFooter({ text: "Dukung bot ini agar tetap online 🎧" });
 
-    await message.reply({ embeds: [embed] });
+    // Button Sponsor
+    const sponsorButton = new ButtonBuilder()
+      .setLabel("📬 Ajukan Sponsor")
+      .setStyle(ButtonStyle.Link)
+      .setURL("https://wahyudi.dev");
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      sponsorButton
+    );
+
+    if (
+      "send" in message.channel &&
+      typeof message.channel.send === "function"
+    ) {
+      await message.channel.send({ embeds: [embedCommands] });
+      await message.channel.send({
+        embeds: [embedSponsor],
+        components: [row],
+      });
+    }
   }
 }

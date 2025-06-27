@@ -1,7 +1,6 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { SpotifyBot } from "../index";
 import { Command } from "../types/Command";
-
 export class QueueCommand implements Command {
   name = "queue";
   description = "Menampilkan daftar lagu dalam queue";
@@ -16,7 +15,7 @@ export class QueueCommand implements Command {
 
     if (!queue.currentTrack && queue.tracks.length === 0) {
       await message.reply(
-        "❌ Queue kosong! Gunakan `!play` untuk menambahkan musik."
+        `❌ Queue kosong! Gunakan ${process.env.PREFIX}play untuk menambahkan musik.`
       );
       return;
     }

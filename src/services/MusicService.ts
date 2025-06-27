@@ -8,7 +8,12 @@ import {
   VoiceConnectionStatus,
   StreamType,
 } from "@discordjs/voice";
-import { VoiceBasedChannel, VoiceState } from "discord.js";
+import {
+  VoiceBasedChannel,
+  VoiceState,
+  TextChannel,
+  EmbedBuilder,
+} from "discord.js";
 import { Track, Queue } from "../types/Track";
 import { spawn } from "child_process";
 import { Readable } from "stream";
@@ -65,6 +70,7 @@ export class MusicService {
       "-o",
       "-",
       "--no-playlist",
+      "--no-check-certificate",
       url,
     ]);
 
@@ -72,7 +78,7 @@ export class MusicService {
       console.error("❌ yt-dlp stdout error:", err);
     });
 
-    ytdlp.stderr.on("data", (data) => {}); // Silence yt-dlp logs
+    ytdlp.stderr.on("data", () => {}); // Silent log
 
     ytdlp.on("close", (code) => {
       if (code !== 0) {
@@ -93,30 +99,35 @@ export class MusicService {
     queue.isPlaying = true;
 
     try {
-      const searchQuery = `${track.artist} ${track.title}`;
-      let videoId = this.videoCache.get(searchQuery);
+      let url = track.youtubeUrl;
 
-      if (!videoId) {
-        const ytDlpSearch = spawn("yt-dlp", [
-          "--cookies",
-          "cookies.txt",
-          "--default-search",
-          "ytsearch1:",
-          "--get-id",
-          "--no-playlist",
-          searchQuery,
-        ]);
+      if (!url) {
+        const searchQuery = `${track.artist} ${track.title}`;
+        let videoId = this.videoCache.get(searchQuery);
 
-        for await (const chunk of ytDlpSearch.stdout) {
-          videoId = chunk.toString().trim();
+        if (!videoId) {
+          const ytDlpSearch = spawn("yt-dlp", [
+            "--cookies",
+            "cookies.txt",
+            "--default-search",
+            "ytsearch1:",
+            "--get-id",
+            "--no-playlist",
+            searchQuery,
+          ]);
+
+          for await (const chunk of ytDlpSearch.stdout) {
+            videoId = chunk.toString().trim();
+          }
+
+          if (!videoId) throw new Error("Video ID not found");
+          this.videoCache.set(searchQuery, videoId);
         }
-        if (!videoId) throw new Error("Video ID not found");
-        this.videoCache.set(searchQuery, videoId);
+
+        url = `https://www.youtube.com/watch?v=${videoId}`;
       }
 
-      const url = `https://www.youtube.com/watch?v=${videoId}`;
       const stream = this.getYtdlpOpusStream(url);
-
       const resource = createAudioResource(stream, {
         inputType: StreamType.WebmOpus,
       });
@@ -130,6 +141,18 @@ export class MusicService {
 
       player.play(resource);
       console.log(`🎵 Now playing: ${track.title} by ${track.artist}`);
+
+      if (track.messageChannel && track.messageChannel instanceof TextChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle("🎶 Sedang Diputar")
+          .setDescription(`**${track.title}** oleh **${track.artist}**`)
+          .setThumbnail(track.thumbnail ?? null)
+          .setColor(0x1db954)
+          .setFooter({
+            text: `Requested by ${track.requestedBy ?? "User"}`,
+          });
+        await track.messageChannel.send({ embeds: [embed] });
+      }
 
       player.once(AudioPlayerStatus.Idle, async () => {
         queue.isPlaying = false;
@@ -201,7 +224,7 @@ export class MusicService {
           if (oldState.channel?.members.filter((m) => !m.user.bot).size === 0) {
             this.disconnect(oldState.guild.id);
           }
-        }, 30000);
+        }, 30_000);
       }
     }
   }

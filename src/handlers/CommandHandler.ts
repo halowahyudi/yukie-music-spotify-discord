@@ -2,7 +2,6 @@ import { Message } from "discord.js";
 import { SpotifyBot } from "../index";
 import { QueueCommand } from "../commands/QueueCommand";
 import { HelpCommand } from "../commands/HelpCommand";
-import { ListCommand } from "../commands/ListCommand";
 import { SkipCommand } from "../commands/SkipCommand";
 import { StopCommand } from "../commands/StopCommand";
 import { PlayCommand } from "../commands/PlayCommand";
@@ -21,7 +20,6 @@ export class CommandHandler {
     const commands = [
       new QueueCommand(),
       new HelpCommand(),
-      new ListCommand(),
       new SkipCommand(),
       new StopCommand(),
       new PlayCommand(),
