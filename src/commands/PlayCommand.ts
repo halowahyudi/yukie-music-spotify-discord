@@ -75,7 +75,7 @@ export class PlayCommand implements Command {
       let addedTracks: Track[] = [];
 
       if (isYouTubeUrl(query)) {
-        // Ambil judul video YouTube
+        // get title from YouTube
         let title = "YouTube Stream";
         try {
           title = await getYouTubeTitle(query);

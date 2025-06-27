@@ -66,6 +66,7 @@ export class MusicService {
       "--quiet",
       "--no-warnings",
       "-f",
+      "bestaudio[ext=webm]",
       "251",
       "-o",
       "-",

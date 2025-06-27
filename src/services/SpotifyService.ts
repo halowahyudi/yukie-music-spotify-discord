@@ -19,7 +19,7 @@ export class SpotifyService {
       this.accessToken = data.body.access_token;
       this.spotifyApi.setAccessToken(this.accessToken);
 
-      // Refresh token setiap 50 menit
+      // refresh token every 50 minutes
       setInterval(() => {
         this.refreshToken();
       }, 50 * 60 * 1000);

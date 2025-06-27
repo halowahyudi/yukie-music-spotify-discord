@@ -37,3 +37,5 @@ ecosystem.config.js
 # Optional: temporary data
 tmp/
 temp/
+
+cookies.txt
